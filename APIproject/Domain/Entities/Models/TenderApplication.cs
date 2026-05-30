@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace APIproject.Models;
+namespace APIproject.Domain.Entities.Models;
 
 public partial class TenderApplication
 {

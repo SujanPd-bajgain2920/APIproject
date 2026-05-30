@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using APIproject.Domain.Entities.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace APIproject.Models;
+namespace APIproject.Infrastructure.Persistence;
 
 public partial class FypContext : DbContext
 {
