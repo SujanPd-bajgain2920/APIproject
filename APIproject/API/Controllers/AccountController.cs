@@ -10,7 +10,9 @@ using System.Security.Claims;
 
 namespace APIproject.API.Controllers
 {
-    public class AccountController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AccountController : ControllerBase
     {
         private readonly IMediator _mediator;
         private readonly IDataProtector _protector;
@@ -23,70 +25,61 @@ namespace APIproject.API.Controllers
             _protector = provider.CreateProtector("UserRegistration");
         }
 
-        // Register 
-
-        [HttpGet]
-        public IActionResult Register() => View();
+        //  Register
+        // POST api/account/register
 
         [AllowAnonymous]
-        [HttpPost]
-        public async Task<IActionResult> Register(RegisterUserDto dto)
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromForm] RegisterUserDto dto)
         {
             try
             {
-                if (!ModelState.IsValid) return View(dto);
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
                 await _mediator.Send(new RegisterUserCommand(dto));
 
-                return RedirectToAction("VerifyRegistration", new { email = dto.EmailAddress });
+                return Ok(new { message = "OTP sent to your email. Please verify to complete registration." });
             }
             catch (InvalidOperationException ex)
             {
-                TempData["ErrorMessage"] = ex.Message;
-                return View(dto);
+                return BadRequest(new { message = ex.Message });
             }
             catch
             {
-                ModelState.AddModelError("", "Registration failed. Please try again.");
-                return View(dto);
+                return StatusCode(500, new { message = "Registration failed. Please try again." });
             }
         }
 
-        // Verify Registration
+        //  Verify Registration
+        // POST api/account/verify-registration
 
-        [HttpGet]
-        public IActionResult VerifyRegistration(string email)
-            => View(new VerifyRegistrationCommand { EmailAddress = email });
-
-        [HttpPost]
-        public async Task<IActionResult> VerifyRegistration(VerifyRegistrationCommand command)
+        [AllowAnonymous]
+        [HttpPost("verify-registration")]
+        public async Task<IActionResult> VerifyRegistration([FromBody] VerifyRegistrationCommand command)
         {
             try
             {
                 await _mediator.Send(command);
 
-                TempData["SuccessMessage"] = "Registration successful! You can now log in.";
-                return RedirectToAction("Login");
+                return Ok(new { message = "Registration successful! You can now log in." });
             }
             catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError("", ex.Message);
-                return View(command);
+                return BadRequest(new { message = ex.Message });
             }
             catch
             {
-                ModelState.AddModelError("", "Verification failed. Please try again.");
-                return View(command);
+                return StatusCode(500, new { message = "Verification failed. Please try again." });
             }
         }
 
-        // Login
+        //  LogIn
+        // POST api/account/login
 
-        [HttpGet]
-        public IActionResult Login() => View();
-
-        [HttpPost]
-        public async Task<IActionResult> Login(LoginDto dto)
+        [AllowAnonymous]
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             try
             {
@@ -97,18 +90,15 @@ namespace APIproject.API.Controllers
                 });
 
                 if (result == null)
-                {
-                    TempData["ErrorMessage"] = "Invalid email or password.";
-                    return View(dto);
-                }
+                    return Unauthorized(new { message = "Invalid email or password." });
 
-                // Claims — HTTP concern, stays in controller
+                // Build cookie claims — stays in controller (HTTP concern)
                 var claims = new List<Claim>
                 {
                     new Claim(ClaimTypes.Name, result.UserId.ToString()),
                     new Claim(ClaimTypes.Role, result.UserRole),
                     new Claim("Role",          result.UserRole),
-                    new Claim("FirstName",      result.FirstName),
+                    new Claim("FirstName",     result.FirstName),
                     new Claim("image",         result.UserPhoto ?? ""),
                     new Claim("email",         result.EmailAddress),
                 };
@@ -120,23 +110,32 @@ namespace APIproject.API.Controllers
                     CookieAuthenticationDefaults.AuthenticationScheme,
                     new ClaimsPrincipal(identity));
 
-                return RedirectToAction("Dashboard");
+                return Ok(new
+                {
+                    message = "Login successful.",
+                    userId = result.UserId,
+                    role = result.UserRole,
+                    name = result.FirstName,
+                    email = result.EmailAddress,
+                    photo = result.UserPhoto
+                });
             }
             catch
             {
-                ModelState.AddModelError("", "Login failed. Please try again.");
-                return View(dto);
+                return StatusCode(500, new { message = "Login failed. Please try again." });
             }
         }
 
-        // Logout
+        //  LogOut
+        // POST api/account/logout
+
         [Authorize]
+        [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction("Login");
+            return Ok(new { message = "Logged out successfully." });
         }
 
-        
     }
 }
