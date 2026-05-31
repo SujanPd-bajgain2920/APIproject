@@ -1,40 +1,35 @@
 ﻿using APIproject.Domain.Interfaces;
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
+using APIproject.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Mail;
 
 namespace APIproject.Infrastructure.Services
 {
     public class EmailService : IEmailService
     {
-        private readonly IConfiguration _configuration;
+        private readonly EmailSettings _emailSettings;
 
-        public EmailService(IConfiguration configuration)
+        public EmailService(IOptions<EmailSettings> emailSetting)
         {
-            _configuration = configuration;
+            _emailSettings = emailSetting.Value;
         }
 
-        // shared private method — same as your existing SendEmailAsync
-        private async Task SendEmailAsync(string toEmail, string subject, string body)
+        private SmtpClient CreateSmtpClient()
         {
-            var emailSettings = _configuration.GetSection("EmailSettings");
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("BidNetra System", emailSettings["FromEmail"]));
-            message.To.Add(new MailboxAddress("", toEmail));
-            message.Subject = subject;
-            message.Body = new BodyBuilder { HtmlBody = body }.ToMessageBody();
-
-            using var client = new SmtpClient();
-            await client.ConnectAsync(emailSettings["SmtpServer"],
-                emailSettings.GetValue<int>("SmtpPort"),
-                SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(emailSettings["FromEmail"], emailSettings["FromPassword"]);
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            return new SmtpClient
+            {
+                Host = _emailSettings.SmtpServer,
+                Port = _emailSettings.SmtpPort,
+                Credentials = new NetworkCredential(
+                    _emailSettings.FromEmail,
+                    _emailSettings.FromPassword
+                ),
+                EnableSsl = true,
+                DeliveryMethod = SmtpDeliveryMethod.Network
+            };
         }
 
-        // called from RegisterUserCommandHandler
         public async Task SendOtpAsync(string toEmail, string otp)
         {
             var body = $@"
@@ -42,14 +37,16 @@ namespace APIproject.Infrastructure.Services
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Email Verification</title>
     <style>
-        body, html {{ margin:0; padding:0; font-family:'Segoe UI',sans-serif; color:#333; }}
-        .container {{ max-width:600px; margin:0 auto; background:#fff; border-radius:8px; }}
-        .header {{ background:linear-gradient(135deg,#1e40af,#1e3a8a); padding:30px 20px; text-align:center; color:white; }}
-        .content {{ padding:40px 30px; }}
-        .footer {{ background:#f8f8f8; padding:15px; text-align:center; font-size:12px; color:#666; border-top:1px solid #ddd; }}
-        .token-box {{ background:#f1f5f9; padding:15px; border-radius:6px; font-family:monospace; font-size:24px; font-weight:bold; text-align:center; margin:20px 0; color:#1e40af; }}
-        .security-note {{ background:#f8fafc; border-left:4px solid #3b82f6; padding:15px; margin:20px 0; font-size:14px; color:#64748b; }}
+        body, html {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
+        .header {{ background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 30px 20px; text-align: center; color: white; }}
+        .content {{ padding: 40px 30px; background-color: #ffffff; }}
+        .footer {{ background-color: #f8f8f8; padding: 15px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }}
+        .token-box {{ background-color: #f1f5f9; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; color: #1e40af; }}
+        .security-note {{ background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; font-size: 14px; color: #64748b; }}
     </style>
 </head>
 <body>
@@ -61,9 +58,9 @@ namespace APIproject.Infrastructure.Services
             <div class='token-box'>{otp}</div>
             <div class='security-note'>
                 <strong>Security Tip:</strong> This code will expire after use.
-                Do not share this code with anyone.
+                Do not share this code with anyone. BidNetra representatives will never ask for this code.
             </div>
-            <p>If you did not request this, please ignore this email.</p>
+            <p>If you did not request this registration, please ignore this email.</p>
         </div>
         <div class='footer'>
             <p>This is an automated message from BidNetra. Please do not reply.</p>
@@ -73,10 +70,19 @@ namespace APIproject.Infrastructure.Services
 </body>
 </html>";
 
-            await SendEmailAsync(toEmail, "Email Verification for Registration", body);
+            var mail = new MailMessage
+            {
+                From = new MailAddress(_emailSettings.FromEmail),
+                Subject = "Email Verification for Registration",
+                Body = body,
+                IsBodyHtml = true
+            };
+            mail.To.Add(toEmail);
+
+            using var smtp = CreateSmtpClient();
+            await smtp.SendMailAsync(mail);
         }
 
-        // called from ForgotPasswordCommandHandler
         public async Task SendPasswordResetTokenAsync(string toEmail, string token)
         {
             var body = $@"
@@ -84,16 +90,18 @@ namespace APIproject.Infrastructure.Services
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Password Reset Request</title>
     <style>
-        body, html {{ margin:0; padding:0; font-family:'Segoe UI',sans-serif; color:#333; }}
-        .container {{ max-width:600px; margin:0 auto; background:#fff; border-radius:8px; }}
-        .header {{ background:linear-gradient(135deg,#1e40af,#1e3a8a); padding:30px 20px; text-align:center; color:white; }}
-        .content {{ padding:40px 30px; }}
-        .footer {{ background:#f8f8f8; padding:15px; text-align:center; font-size:12px; color:#666; border-top:1px solid #ddd; }}
-        .security-note {{ background:#f8fafc; border-left:4px solid #3b82f6; padding:15px; margin:20px 0; font-size:14px; color:#64748b; }}
-        .info-table {{ width:100%; border-collapse:collapse; margin:15px 0; }}
-        .info-table td {{ padding:8px; border-bottom:1px solid #eee; }}
-        .info-table td:first-child {{ font-weight:bold; width:140px; }}
+        body, html {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
+        .header {{ background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 30px 20px; text-align: center; color: white; }}
+        .content {{ padding: 40px 30px; background-color: #ffffff; }}
+        .footer {{ background-color: #f8f8f8; padding: 15px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }}
+        .info-table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+        .info-table td {{ padding: 8px; border-bottom: 1px solid #eee; }}
+        .info-table td:first-child {{ font-weight: bold; width: 140px; }}
+        .security-note {{ background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; font-size: 14px; color: #64748b; }}
     </style>
 </head>
 <body>
@@ -101,20 +109,20 @@ namespace APIproject.Infrastructure.Services
         <div class='header'><h1 style='margin:0;'>Password Reset Request</h1></div>
         <div class='content'>
             <h2 style='color:#0056b3;'>Reset Your Password</h2>
-            <p>We received a request to reset your BidNetra account password.</p>
+            <p>We received a request to reset your password for your BidNetra account.</p>
             <table class='info-table'>
                 <tr><td>Account Email:</td><td>{toEmail}</td></tr>
                 <tr><td>Request Time:</td><td>{DateTime.Now:dd MMM yyyy, HH:mm}</td></tr>
             </table>
-            <div style='text-align:center; margin:20px 0;'>
+            <div style='text-align:center; margin: 20px 0;'>
                 <strong>Your verification code:</strong>
                 <div style='font-size:28px; font-weight:bold; color:#1e40af; margin-top:8px;'>{token}</div>
             </div>
             <div class='security-note'>
                 <strong>Security Tip:</strong> Never share this code with anyone.
-                BidNetra will never ask for your password or this token.
+                BidNetra representatives will never ask for your password or this token.
             </div>
-            <p>If you did not request this, please ignore this email.</p>
+            <p>If you did not request a password reset, please ignore this email.</p>
         </div>
         <div class='footer'>
             <p>This is an automated message from BidNetra. Please do not reply.</p>
@@ -124,7 +132,17 @@ namespace APIproject.Infrastructure.Services
 </body>
 </html>";
 
-            await SendEmailAsync(toEmail, "Reset Your BidNetra Password", body);
+            var mail = new MailMessage
+            {
+                From = new MailAddress(_emailSettings.FromEmail),
+                Subject = "Reset Your BidNetra Password",
+                Body = body,
+                IsBodyHtml = true
+            };
+            mail.To.Add(toEmail);
+
+            using var smtp = CreateSmtpClient();
+            await smtp.SendMailAsync(mail);
         }
     }
 }

@@ -1,4 +1,8 @@
 
+using APIproject.Domain.Interfaces;
+using APIproject.Infrastructure.Configuration;
+using APIproject.Infrastructure.Services;
+
 namespace APIproject
 {
     public class Program
@@ -7,7 +11,10 @@ namespace APIproject
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Services.Configure<EmailSettings>(
+            builder.Configuration.GetSection("EmailSettings"));
 
+            builder.Services.AddScoped<IEmailService, EmailService>();
 
             // Add services to the container.
 
