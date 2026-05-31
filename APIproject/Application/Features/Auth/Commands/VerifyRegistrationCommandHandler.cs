@@ -49,7 +49,7 @@ namespace APIproject.Application.Features.Auth.Commands
                 var tempPath = Encoding.UTF8.GetString(tempBytes);
                 var ext = Path.GetExtension(session.GetString("UserFileName"));
                 var fileName = $"user_{userId}{ext}";
-                userPhotoPath = await _fileService.MoveFileToPermanentAsync(tempPath, "UserImage", fileName);
+                userPhotoPath = await _fileService.MoveToPermanentAsync(tempPath, "UserImage", fileName);
 
             }
 

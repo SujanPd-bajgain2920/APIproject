@@ -1,7 +1,7 @@
-
-using APIproject.Domain.Interfaces;
-using APIproject.Infrastructure.Configuration;
-using APIproject.Infrastructure.Services;
+using APIproject.Application;
+using APIproject.Infrastructure;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace APIproject
 {
@@ -11,21 +11,39 @@ namespace APIproject
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.Configure<EmailSettings>(
-            builder.Configuration.GetSection("EmailSettings"));
-
-            builder.Services.AddScoped<IEmailService, EmailService>();
-
-            // Add services to the container.
-
+            // Controllers + Swagger
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            // Session
+            builder.Services.AddDistributedMemoryCache();
+            builder.Services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+            });
+
+            // Authentication
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Account/Login";
+                    options.LogoutPath = "/Account/Logout";
+                    options.ExpireTimeSpan = TimeSpan.FromHours(1);
+                });
+
+            // Data Protection
+            builder.Services.AddDataProtection();
+
+            // Application + Infrastructure
+            builder.Services.AddApplication();                          // MediatR + handlers
+            builder.Services.AddInfrastructure(builder.Configuration);  // DB, Repos, Email, File
+
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
+            // Pipeline
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -33,9 +51,11 @@ namespace APIproject
             }
 
             app.UseHttpsRedirection();
-
+            app.UseStaticFiles();
+            app.UseRouting();
+            app.UseSession();           
+            app.UseAuthentication();
             app.UseAuthorization();
-
 
             app.MapControllers();
 

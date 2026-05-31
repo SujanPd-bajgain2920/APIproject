@@ -1,4 +1,5 @@
 ﻿using APIproject.Domain.Interfaces;
+using APIproject.Infrastructure.Configuration;
 using APIproject.Infrastructure.Persistence;
 using APIproject.Infrastructure.Repositories;
 using APIproject.Infrastructure.Services;
@@ -22,6 +23,10 @@ namespace APIproject.Infrastructure
             // register services
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IFileService, FileService>();
+
+            services.Configure<EmailSettings>(
+                configuration.GetSection("EmailSettings"));
+
 
             // HttpContext for session management in handlers
             services.AddHttpContextAccessor();
