@@ -21,7 +21,6 @@
   <ItemGroup>
     <Folder Include="Application\Mappings\" />
     <Folder Include="Domain\Enums\" />
-    <Folder Include="Infrastructure\Repositories\" />
   </ItemGroup>
 
 </Project>
