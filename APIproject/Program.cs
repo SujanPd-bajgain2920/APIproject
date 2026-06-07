@@ -1,7 +1,10 @@
 using APIproject.Application;
 using APIproject.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace APIproject
 {
@@ -33,17 +36,33 @@ namespace APIproject
                 options.MinimumSameSitePolicy = SameSiteMode.Lax;
             });
 
-            // Authentication
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
                 {
-                    options.LoginPath = "/Account/Login";
-                    options.LogoutPath = "/Account/Logout";
-                    options.ExpireTimeSpan = TimeSpan.FromHours(1);
+                    var jwt = builder.Configuration.GetSection("Jwt");
+                    var key = jwt["Key"];
+
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+
+                        ValidIssuer = jwt["Issuer"],
+                        ValidAudience = jwt["Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(key!)
+                        )
+                    };
                 });
+
+            builder.Services.AddAuthorization();
 
             // Data Protection
             builder.Services.AddDataProtection();
+
+
 
             // Application + Infrastructure
             builder.Services.AddApplication();                          // MediatR + handlers

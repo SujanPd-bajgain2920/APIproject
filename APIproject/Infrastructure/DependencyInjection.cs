@@ -24,6 +24,9 @@ namespace APIproject.Infrastructure
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IFileService, FileService>();
 
+            // JWT service for token generation
+            services.AddScoped<IJwtService, JwtService>();
+
             services.Configure<EmailSettings>(
                 configuration.GetSection("EmailSettings"));
 

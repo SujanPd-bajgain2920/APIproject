@@ -7,5 +7,6 @@
         public string EmailAddress { get; set; } = null!;
         public string UserRole { get; set; } = null!;
         public string? UserPhoto { get; set; }
+        public string Token { get; set; } = null!;
     }
 }
