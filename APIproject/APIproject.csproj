@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>d4f3839e-b823-44e0-a553-1c3a540b1dee</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +23,8 @@
   <ItemGroup>
     <Folder Include="Application\Mappings\" />
     <Folder Include="Domain\Enums\" />
+    <Folder Include="wwwroot\TempUploads\" />
+    <Folder Include="wwwroot\UserImage\" />
   </ItemGroup>
 
 </Project>

@@ -11,39 +11,59 @@ namespace APIproject.Infrastructure.Services
             _env = env;
         }
 
-        // save uploaded file to system temp folder and return the temp path
+        //  Save temp file inside project
         public async Task<string> SaveTempFileAsync(IFormFile file)
         {
-            var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid()}");
-            using var stream = File.Create(tempPath);
-            await file.CopyToAsync(stream);
-            return tempPath;
+            var tempFolder = Path.Combine(_env.WebRootPath, "TempUploads");
+
+            if (!Directory.Exists(tempFolder))
+                Directory.CreateDirectory(tempFolder);
+
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var tempPath = Path.Combine(tempFolder, fileName);
+
+            using (var stream = new FileStream(tempPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // return relative path for session
+            return Path.Combine("TempUploads", fileName);
         }
 
-        // move file from temp path to a permanent location and return the new path
+        //  Move file from temp to permanent
         public async Task<string> MoveToPermanentAsync(string tempPath, string folder, string fileName)
         {
-            var folderPath = Path.Combine(_env.WebRootPath, folder);
+            var rootPath = _env.WebRootPath;
 
-            if (!Directory.Exists(folderPath))
-                Directory.CreateDirectory(folderPath);
+            var sourcePath = Path.Combine(rootPath, tempPath);
+            var destinationFolder = Path.Combine(rootPath, folder);
 
-            var destPath = Path.Combine(folderPath, fileName);
+            if (!Directory.Exists(destinationFolder))
+                Directory.CreateDirectory(destinationFolder);
 
-            using var source = File.OpenRead(tempPath);
-            using var dest = File.Create(destPath);
-            await source.CopyToAsync(dest);
+            var destinationPath = Path.Combine(destinationFolder, fileName);
 
-            File.Delete(tempPath);
+            if (File.Exists(sourcePath))
+            {
+                File.Copy(sourcePath, destinationPath, true);
+                File.Delete(sourcePath); // cleanup temp
+            }
+            else
+            {
+                throw new FileNotFoundException("Temp file not found", sourcePath);
+            }
 
-            return fileName;
+            return Path.Combine(folder, fileName);
         }
 
-        // deletes temp file safely
+        // optional cleanup
         public void DeleteTempFile(string tempPath)
         {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
+            var fullPath = Path.Combine(_env.WebRootPath, tempPath);
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
         }
     }
 }

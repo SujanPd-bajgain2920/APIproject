@@ -16,6 +16,7 @@ namespace APIproject
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+
             // Session
             builder.Services.AddDistributedMemoryCache();
             builder.Services.AddSession(options =>
@@ -23,6 +24,13 @@ namespace APIproject
                 options.IdleTimeout = TimeSpan.FromMinutes(30);
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+            });
+
+            // Cookie policy ( for Swagger/session)
+            builder.Services.Configure<CookiePolicyOptions>(options =>
+            {
+                options.MinimumSameSitePolicy = SameSiteMode.Lax;
             });
 
             // Authentication
@@ -53,6 +61,7 @@ namespace APIproject
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseCookiePolicy();
             app.UseSession();           
             app.UseAuthentication();
             app.UseAuthorization();

@@ -34,8 +34,15 @@ namespace APIproject.Application.Features.Auth.Commands
             var userDataJson = session.GetString("UserData");
 
             // Validate OTP
-            if (storedOtp != request.EnteredOtp || string.IsNullOrEmpty(userDataJson))
-                throw new InvalidOperationException("Invalid OTP!!");
+            if (string.IsNullOrEmpty(storedOtp))
+                throw new InvalidOperationException("OTP expired or session lost.");
+
+            if (string.IsNullOrEmpty(userDataJson))
+                throw new InvalidOperationException("User data expired or session lost.");
+
+            if (!string.Equals(storedOtp, request.EnteredOtp))
+                throw new InvalidOperationException("Invalid OTP.");
+
 
             var userData = JsonSerializer.Deserialize<RegisteredUserSession>(userDataJson)!;
 
@@ -74,8 +81,11 @@ namespace APIproject.Application.Features.Auth.Commands
             await _userRepository.AddAsync(user);
 
             // cleanup session
-            foreach (var key in new[] { "RegisterOtp", "UserData", "UserTempPath", "UserFileName" })
-                session.Remove(key);
+            session.Remove("RegisterOtp");
+            session.Remove("UserData");
+            session.Remove("UserTempPath");
+            session.Remove("UserFileName");
+
 
             return true;
         }

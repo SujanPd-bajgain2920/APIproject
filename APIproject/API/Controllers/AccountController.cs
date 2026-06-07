@@ -60,17 +60,24 @@ namespace APIproject.API.Controllers
         {
             try
             {
-                await _mediator.Send(command);
+                var result = await _mediator.Send(command);
 
-                return Ok(new { message = "Registration successful! You can now log in." });
+                return Ok(new
+                {
+                    message = "Registration successful! You can now log in.",
+                    success = result
+                });
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch
+            catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Verification failed. Please try again." });
+                return StatusCode(500, new
+                {
+                    message = ex.Message //  Real error message for debugging
+                });
             }
         }
 
